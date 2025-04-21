@@ -36,8 +36,7 @@ def get_data_from_ctfd():
 
         return users
     
-def get_user_stats(users):
-    intial_i = min(users['id'])
+def get_user_stats(users:pd.DataFrame):
     async def fetch_data(session, url):
         # Send asynchronous request to url
         headers = {
@@ -50,17 +49,20 @@ def get_user_stats(users):
 
     async def main():
         #setup asynchronous request pool that gets all users
-        urls = [f"{BASE_URL}/api/v1/users/{x}/solves" for x in range(intial_i,max(users['id'])+1)]
+        urls = [f"{BASE_URL}/api/v1/users/{row['id']}/solves" for i,row in users.iterrows()]
         
         async with aiohttp.ClientSession() as session:
             tasks = [fetch_data(session, url) for url in urls]
             results = await asyncio.gather(*tasks)
             
             results_dict = {}
-            for id in range(intial_i,max(users['id'])+1):
-                if not results[id-intial_i]['success']:
+            count =0
+            for i,row in users.iterrows():
+                if not results[count]['success']:
                     continue
-                results_dict[id]=results[id-intial_i]['meta']['count']
+
+                results_dict[row['id']]=results[count]['meta']['count']
+                count+=1
 
         return results_dict
 
@@ -104,6 +106,8 @@ def main():
         user:pd.DataFrame = ctfd_users[ctfd_users["email"] == row["Email"]]
         if len(user) ==1:
             id = user.iloc[0]["id"]
+            if not (id in ctfd_user_solves):
+                continue
             if ctfd_user_solves[id] >= REQ_SOLVES:
                 new_df.loc[count] = [row['Full Name'],row["UniKey"],row['Student Number']]
                 count+=1
