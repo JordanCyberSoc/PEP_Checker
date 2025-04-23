@@ -1,10 +1,10 @@
 import asyncio,tempfile, requests, json, aiohttp,pandas as pd, sys,os.path,re
 
-
 BASE_URL = None
 ACCESS_TOKEN = None
-REQ_SOLVES=4
+REQ_SOLVES=float('inf')
 GOOGLE_FORM_PATH=None
+EXPECTED_TEAM_POINTS=float('inf')
 
 def change_all_entr_col_df_lowercase(df:pd.DataFrame,column:str):
     for i,m in df.iterrows():
@@ -36,7 +36,9 @@ def get_data_from_ctfd():
 
         return users
     
-def get_user_stats(users:pd.DataFrame):
+def get_user_team_stats(users:pd.DataFrame):
+    teams = users['team_id'].unique()
+
     async def fetch_data(session, url):
         # Send asynchronous request to url
         headers = {
@@ -49,22 +51,37 @@ def get_user_stats(users:pd.DataFrame):
 
     async def main():
         #setup asynchronous request pool that gets all users
-        urls = [f"{BASE_URL}/api/v1/users/{row['id']}/solves" for i,row in users.iterrows()]
-        
+        url_users = [f"{BASE_URL}/api/v1/users/{row['id']}/solves" for i,row in users.iterrows()]
+        results_user_dict = {}
+        results_team_dict = {}
+
         async with aiohttp.ClientSession() as session:
-            tasks = [fetch_data(session, url) for url in urls]
-            results = await asyncio.gather(*tasks)
+            task_teams = [fetch_data(session, url) for url in url_users]
+            result_users = await asyncio.gather(*task_teams)
             
-            results_dict = {}
             count =0
             for i,row in users.iterrows():
-                if not results[count]['success']:
+                if not result_users[count]['success']:
+                    count+=1
                     continue
 
-                results_dict[row['id']]=results[count]['meta']['count']
+                results_user_dict[row['id']]=result_users[count]['meta']['count']
                 count+=1
 
-        return results_dict
+        #setup asynchronous request pool that gets all teams
+        url_teams = [f"{BASE_URL}/api/v1/teams/{team_id}/solves" for team_id in teams]
+        
+        async with aiohttp.ClientSession() as session:
+            task_teams = [fetch_data(session, url) for url in url_teams]
+            results_teams = await asyncio.gather(*task_teams)
+            
+            for count,team in enumerate(teams):
+                if not results_teams[count]['success']:
+                    continue
+
+                results_team_dict[int(team)]=sum([x['challenge']['value'] for x in results_teams[count]['data']])
+
+        return results_user_dict, results_team_dict
 
     return asyncio.run(main())
 
@@ -91,14 +108,12 @@ def get_data_from_google_form():
 
 def main(): 
     ctfd_users = get_data_from_ctfd()
-
-    ctfd_user_solves = get_user_stats(ctfd_users)
-
+    ctfd_user_solves, ctfd_team_solves = get_user_team_stats(ctfd_users)
     pep_form = get_data_from_google_form()
 
     """
         Iterate through all entries of the google form and only write the users with valid accounts in ctfd 
-        that have at least <REQ_SOLVES>
+        that have at least <REQ_SOLVES>, with a team score of at least <EXPECTED_TEAM_POINTS>
     """
     new_df = pd.DataFrame(columns=["Name","UniKey","Student Number"])
     count =0
@@ -108,9 +123,17 @@ def main():
             id = user.iloc[0]["id"]
             if not (id in ctfd_user_solves):
                 continue
-            if ctfd_user_solves[id] >= REQ_SOLVES:
-                new_df.loc[count] = [row['Full Name'],row["UniKey"],row['Student Number']]
-                count+=1
+            if ctfd_user_solves[id] < REQ_SOLVES:
+                continue
+
+            team_id =user.iloc[0]['team_id']
+            if not (team_id in ctfd_team_solves):
+                continue
+            if ctfd_team_solves[team_id] < EXPECTED_TEAM_POINTS:
+                continue
+
+            new_df.loc[count] = [row['Full Name'],row["UniKey"],row['Student Number']]
+            count+=1
     
     
     new_df.to_csv('PEP.csv',index=False)
@@ -119,9 +142,9 @@ def main():
 if __name__ =="__main__":
     # Setup environment
 
-    if len(sys.argv) !=5:
+    if len(sys.argv) !=6:
         raise RuntimeError("Must be in the form:\n\r\t" \
-        "python3 CTFD_sol.py <URL_TO_CTF> <PATH_OF_TOKEN> <PATH_OF_GOOGLE_FORM> <NO_SOLVES>")
+        "python3 CTFD_sol.py <URL_TO_CTF> <PATH_OF_TOKEN> <PATH_OF_GOOGLE_FORM> <NO_SOLVES> <EXP_TEAM_POINTS>")
 
     BASE_URL = sys.argv[1] if sys.argv[1][-1] =='/' else sys.argv[1]+'/'
 
@@ -137,6 +160,10 @@ if __name__ =="__main__":
 
     if not sys.argv[4].isdigit():
         raise ValueError("<NO_SOLVES> needs to be an integer")
-    
     REQ_SOLVES=int(sys.argv[4])
+    
+    if not sys.argv[5].isdigit():
+        raise ValueError("<EXP_TEAM_POINTS> needs to be an integer")
+    EXPECTED_TEAM_POINTS=int(sys.argv[5])
+
     main()
