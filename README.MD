@@ -2,8 +2,7 @@
 
 ## How to Use
 ### Setting up the Environment
-1. Clone the repository using:
-  `git clone `
+1. Clone the repository.
 2. Change into the repository's directory
 3. Create and activate a virtual environment
     a. You can find more information about this [here](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/)

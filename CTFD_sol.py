@@ -120,10 +120,10 @@ def main():
     for index, row in pep_form.iterrows():
         user:pd.DataFrame = ctfd_users[ctfd_users["email"] == row["Email"]]
         if len(user) ==1:
-            id = user.iloc[0]["id"]
-            if not (id in ctfd_user_solves):
+            user_id = user.iloc[0]["id"]
+            if not (user_id in ctfd_user_solves):
                 continue
-            if ctfd_user_solves[id] < REQ_SOLVES:
+            if ctfd_user_solves[user_id] < REQ_SOLVES:
                 continue
 
             team_id =user.iloc[0]['team_id']
