@@ -89,7 +89,7 @@ def get_data_from_google_form():
     # Convert Google form with columns Full Name, UniKey, Student Number and Email to pandas dataframe
     df = pd.read_csv(GOOGLE_FORM_PATH)
 
-    unikey_email_re=r"((?:[A-Za-z]{4}[0-9]{4})(?:@uni\.sydney\.edu\.au)?)$" 
+    unikey_email_re=r"^((?:[A-Za-z]{4}[0-9]{4})(?:@uni\.sydney\.edu\.au)?)$" 
     matches =df[df['UniKey'].str.match(unikey_email_re,case=False)]
     """
         For a user John Smith, Check if a unikey is case insensitive and is written in the forms:
