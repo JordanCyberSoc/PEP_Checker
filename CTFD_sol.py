@@ -2,7 +2,8 @@ import asyncio,tempfile, requests, json, aiohttp,pandas as pd, sys,os.path,re
 
 BASE_URL = None
 ACCESS_TOKEN = None
-REQ_SOLVES=float('inf')
+TEAM_REQ_SOLVES=float('inf')
+INDIVIDUAL_REQ_SOLVES=float('inf')
 GOOGLE_FORM_PATH=None
 EXPECTED_TEAM_POINTS=float('inf')
 
@@ -68,8 +69,8 @@ def get_user_team_stats(users:pd.DataFrame):
                 results_user_dict[row['id']]=result_users[count]['meta']['count']
                 count+=1
 
-        #setup asynchronous request pool that gets all teams
-        url_teams = [f"{BASE_URL}/api/v1/teams/{team_id}/solves" for team_id in teams]
+        #setup asynchronous request pool that gets all team scores
+        url_teams = [f"{BASE_URL}/api/v1/teams/{team_id}" for team_id in teams]
         
         async with aiohttp.ClientSession() as session:
             task_teams = [fetch_data(session, url) for url in url_teams]
@@ -79,7 +80,7 @@ def get_user_team_stats(users:pd.DataFrame):
                 if not results_teams[count]['success']:
                     continue
 
-                results_team_dict[int(team)]=sum([x['challenge']['value'] for x in results_teams[count]['data']])
+                results_team_dict[int(team)]=(results_teams[count]['data']['score'],len(results_teams[count]['data']['members']))
 
         return results_user_dict, results_team_dict
 
@@ -120,17 +121,24 @@ def main():
     for index, row in pep_form.iterrows():
         user:pd.DataFrame = ctfd_users[ctfd_users["email"] == row["Email"]]
         if len(user) ==1:
-            user_id = user.iloc[0]["id"]
-            if not (user_id in ctfd_user_solves):
-                continue
-            if ctfd_user_solves[user_id] < REQ_SOLVES:
-                continue
-
             team_id =user.iloc[0]['team_id']
             if not (team_id in ctfd_team_solves):
                 continue
-            if ctfd_team_solves[team_id] < EXPECTED_TEAM_POINTS:
-                continue
+
+            if ctfd_team_solves[team_id][1] == 1:
+
+                if ctfd_user_solves[user_id] < INDIVIDUAL_REQ_SOLVES:
+                    continue
+            else:
+                if ctfd_team_solves[team_id][0] < EXPECTED_TEAM_POINTS:
+                    continue
+
+                user_id = user.iloc[0]["id"]
+                if not (user_id in ctfd_user_solves):
+                    continue
+                if ctfd_user_solves[user_id] < TEAM_REQ_SOLVES:
+                    continue
+
 
             new_df.loc[count] = [row['Full Name'],row["UniKey"],row['Student Number']]
             count+=1
@@ -142,9 +150,9 @@ def main():
 if __name__ =="__main__":
     # Setup environment
 
-    if len(sys.argv) !=6:
+    if len(sys.argv) !=7:
         raise RuntimeError("Must be in the form:\n\r\t" \
-        "python3 CTFD_sol.py <URL_TO_CTF> <PATH_OF_TOKEN> <PATH_OF_GOOGLE_FORM> <NO_SOLVES> <EXP_TEAM_POINTS>")
+        "python3 CTFD_sol.py <URL_TO_CTF> <PATH_OF_TOKEN> <PATH_OF_GOOGLE_FORM> <NO_TEAM_SOLVES> <EXP_TEAM_POINTS> <NO_INDIVIDUAL_SOLVES> ")
 
     BASE_URL = sys.argv[1] if sys.argv[1][-1] =='/' else sys.argv[1]+'/'
 
@@ -159,11 +167,15 @@ if __name__ =="__main__":
     GOOGLE_FORM_PATH = sys.argv[3]    
 
     if not sys.argv[4].isdigit():
-        raise ValueError("<NO_SOLVES> needs to be an integer")
-    REQ_SOLVES=int(sys.argv[4])
+        raise ValueError("<NO_TEAM_SOLVES> needs to be an integer")
+    TEAM_REQ_SOLVES=int(sys.argv[4])
     
     if not sys.argv[5].isdigit():
         raise ValueError("<EXP_TEAM_POINTS> needs to be an integer")
     EXPECTED_TEAM_POINTS=int(sys.argv[5])
+
+    if not sys.argv[6].isdigit():
+        raise ValueError("<NO_INDIVIDUAL_SOLVES> needs to be an integer")
+    INDIVIDUAL_REQ_SOLVES=int(sys.argv[6])
 
     main()
