@@ -2,10 +2,6 @@ import asyncio,tempfile, requests, json, aiohttp,pandas as pd, sys,os.path,re,nu
 
 BASE_URL = None
 ACCESS_TOKEN = None
-TEAM_REQ_SOLVES=float('inf')
-INDIVIDUAL_REQ_SOLVES=float('inf')
-GOOGLE_FORM_PATH=None
-EXPECTED_TEAM_POINTS=float('inf')
 
 def change_all_entr_col_df_lowercase(df:pd.DataFrame,column:str):
     for i,m in df.iterrows():
@@ -89,73 +85,29 @@ def get_user_team_stats(users:pd.DataFrame):
 
     return asyncio.run(main())
 
-def get_data_from_google_form():
-    # Convert Google form with columns Full Name, UniKey, Student Number and Email to pandas dataframe
-    df = pd.read_csv(GOOGLE_FORM_PATH)
-
-    unikey_email_re=r"^((?:[A-Za-z]{4}[0-9]{4})(?:@uni\.sydney\.edu\.au)?)$" 
-    matches =df[df['UniKey'].str.match(unikey_email_re,case=False)]
-    """
-        For a user John Smith, Check if a unikey is case insensitive and is written in the forms:
-        jsmit1234, jsmit1234@uni.sydney.edu.au
-
-    """
-    unikey_re = r"([a-zA-Z]{4}[0-9]{4})"
-    for i,m in matches.iterrows():
-        matches.loc[i,'UniKey']=re.search(unikey_re,matches.loc[i,'UniKey']).group(0)
-
-    change_all_entr_col_df_lowercase(matches,'Email')
-
-    # Deletes any entry with a duplicate email
-    return matches.drop_duplicates(subset=['Email'],keep=False)
-
 
 def main(): 
     ctfd_users = get_data_from_ctfd()
     ctfd_user_solves, ctfd_team_solves = get_user_team_stats(ctfd_users)
-    pep_form = get_data_from_google_form()
 
-    """
-        Iterate through all entries of the google form and only write the users with valid accounts in ctfd 
-        that have at least <REQ_SOLVES>, with a team score of at least <EXPECTED_TEAM_POINTS>
-    """
-    new_df = pd.DataFrame(columns=["Name","UniKey","Student Number"])
-    count =0
-    for index, row in pep_form.iterrows():
-        user:pd.DataFrame = ctfd_users[ctfd_users["email"] == row["Email"]]
-        if len(user) ==1:
-            team_id =user.iloc[0]['team_id']
-            if not (team_id in ctfd_team_solves):
-                continue
-
-            if ctfd_team_solves[team_id]['no_teammates'] == 1:
-
-                if ctfd_user_solves[user_id] < INDIVIDUAL_REQ_SOLVES:
-                    continue
-            else:
-                if ctfd_team_solves[team_id]['score'] < EXPECTED_TEAM_POINTS:
-                    continue
-
-                user_id = user.iloc[0]["id"]
-                if not (user_id in ctfd_user_solves):
-                    continue
-                if ctfd_user_solves[user_id] < TEAM_REQ_SOLVES:
-                    continue
-
-
-            new_df.loc[count] = [row['Full Name'],row["UniKey"],row['Student Number']]
-            count+=1
+    ctfd_users.to_csv("users.csv")
     
-    
-    new_df.to_csv('PEP.csv',index=False)
+    with open("user_solves.csv",'w') as f:
+        f.write(json.dumps(ctfd_user_solves))
+        f.close()
+
+    with open('ctf_team_solves.csv','w') as f:
+        f.write(json.dumps(ctfd_team_solves))
+        f.close()
+
     print("Done! Saved as PEP.csv")
 
 if __name__ =="__main__":
     # Setup environment
 
-    if len(sys.argv) !=7:
+    if len(sys.argv) !=3:
         raise RuntimeError("Must be in the form:\n\r\t" \
-        "python3 CTFD_sol.py <URL_TO_CTF> <PATH_OF_TOKEN> <PATH_OF_GOOGLE_FORM> <NO_TEAM_SOLVES> <EXP_TEAM_POINTS> <NO_INDIVIDUAL_SOLVES> ")
+        "python3 save_data.py <URL_TO_CTF> <PATH_OF_TOKEN>")
 
     BASE_URL = sys.argv[1] if sys.argv[1][-1] =='/' else sys.argv[1]+'/'
 
@@ -164,21 +116,5 @@ if __name__ =="__main__":
     
     with open(sys.argv[2],"r") as f:
         ACCESS_TOKEN = f.readline()
-
-    if not os.path.exists(sys.argv[3]):
-        raise FileNotFoundError("Google form file doesn't exist")
-    GOOGLE_FORM_PATH = sys.argv[3]    
-
-    if not sys.argv[4].isdigit():
-        raise ValueError("<NO_TEAM_SOLVES> needs to be an integer")
-    TEAM_REQ_SOLVES=int(sys.argv[4])
-    
-    if not sys.argv[5].isdigit():
-        raise ValueError("<EXP_TEAM_POINTS> needs to be an integer")
-    EXPECTED_TEAM_POINTS=int(sys.argv[5])
-
-    if not sys.argv[6].isdigit():
-        raise ValueError("<NO_INDIVIDUAL_SOLVES> needs to be an integer")
-    INDIVIDUAL_REQ_SOLVES=int(sys.argv[6])
 
     main()
