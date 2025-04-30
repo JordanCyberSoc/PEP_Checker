@@ -90,13 +90,13 @@ def main():
     ctfd_users = get_data_from_ctfd()
     ctfd_user_solves, ctfd_team_solves = get_user_team_stats(ctfd_users)
 
-    ctfd_users.to_csv("users.csv")
+    ctfd_users.to_csv("users.csv",index=False)
     
-    with open("user_solves.csv",'w') as f:
+    with open("user_solves.json",'w') as f:
         f.write(json.dumps(ctfd_user_solves))
         f.close()
 
-    with open('ctf_team_solves.csv','w') as f:
+    with open('ctf_team_solves.json','w') as f:
         f.write(json.dumps(ctfd_team_solves))
         f.close()
 

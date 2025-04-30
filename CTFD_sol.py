@@ -130,6 +130,9 @@ def main():
 
             if ctfd_team_solves[team_id]['no_teammates'] == 1:
 
+                user_id = user.iloc[0]["id"]
+                if not (user_id in ctfd_user_solves):
+                    continue
                 if ctfd_user_solves[user_id] < INDIVIDUAL_REQ_SOLVES:
                     continue
             else:
