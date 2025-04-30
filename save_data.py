@@ -100,7 +100,7 @@ def main():
         f.write(json.dumps(ctfd_team_solves))
         f.close()
 
-    print("Done! Saved as PEP.csv")
+    print("Done! Saved as users.csv, user_solves.json and ctf_team_solves.json")
 
 if __name__ =="__main__":
     # Setup environment

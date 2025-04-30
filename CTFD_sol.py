@@ -151,7 +151,8 @@ def main():
     
     
     new_df.to_csv('PEP.csv',index=False)
-    print("Done! Saved as PEP.csv")
+    new_df.to_excel('PEP.xlsx',index=False)
+    print("Done! Saved as PEP.csv and PEP.xlsx")
 
 if __name__ =="__main__":
     # Setup environment
