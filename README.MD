@@ -13,10 +13,16 @@
 6. In the spreadsheet change the respective column names for Full Name, UniKey, Student Number and Email to Full Name, UniKey, Student Number and Email
 7. Export the spreadsheet as a csv.
 ### Getting a REST API KEY from CTFD
-8. Get a CTFD API key by following these [steps](https://docs.ctfd.io/docs/api/getting-started/#generating-an-admin-access-token
+8. Get a CTFD API key by following these [steps](https://docs.ctfd.io/docs/api/getting-started/#generating-an-admin-access-token)
 9. Once you have received the key save it in a file
 ### Running the program
 10. Run the program with the following arguments:
     `python3 CTFD_sol.py <URL_TO_CTF> <PATH_OF_TOKEN> <PATH_OF_GOOGLE_FORM> <NO_SOLVES> <EXP_TEAM_POINTS>`
 
-11. If ran successfully a file called PEP.csv will be generated
+11. If ran successfully the files called PEP.csv and PEP.xlsx will be generated
+
+# CTF PEP Saver
+1. Follow steps 1-9 from the CTF PEP checker
+2. Run the program with the following arguments:
+    `python3 save_data.py <URL_TO_CTF> <PATH_OF_TOKEN>`
+3. If ran successfully it will create: users.csv, user_solves.json and ctf_team_solves.json
