@@ -106,8 +106,9 @@ def get_data_from_google_form():
 
     change_all_entr_col_df_lowercase(matches,'Email')
 
-    # Deletes any entry with a duplicate email
-    return matches.drop_duplicates(subset=['Email'],keep=False)
+    # Keeps the latest entry based on a user's unikey and deletes any entry with a duplicate email
+    keep_latest_unikey= matches.drop_duplicates(subset=['UniKey'],keep='last')
+    return keep_latest_unikey.drop_duplicates(subset=['Email'],keep=False)
 
 
 def main(): 
