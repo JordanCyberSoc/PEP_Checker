@@ -1,4 +1,5 @@
 import asyncio,tempfile, requests, json, aiohttp,pandas as pd, sys,os.path,re,numpy
+from halo import Halo
 
 BASE_URL = None
 ACCESS_TOKEN = None
@@ -13,6 +14,8 @@ def change_all_entr_col_df_lowercase(df:pd.DataFrame,column:str):
 
 def get_data_from_ctfd(): 
     # Send request to ctfd server to get user data
+    spinner_user = Halo(text=f'Getting users from {BASE_URL}', spinner='dots')
+    spinner_user.start()
     api_endpoint = "/api/v1/exports/raw"
     url = f"{BASE_URL}{api_endpoint}"
 
@@ -32,8 +35,12 @@ def get_data_from_ctfd():
         fp.close()
         df = pd.read_csv(fp.name)
         users =df[df["type"]=="user"]
+        spinner_user.stop()
 
+        spinner_emails = Halo(text='Lower casing User Emails', spinner='dots')
+        spinner_emails.start()
         change_all_entr_col_df_lowercase(users,'email')
+        spinner_emails.stop()
 
         return users
     
@@ -54,6 +61,8 @@ def get_user_team_stats(users:pd.DataFrame):
                 return {'success':False}
 
     async def main():
+        spinner_user = Halo(text='Fetching user solves', spinner='dots')
+        spinner_user.start()
         #setup asynchronous request pool that gets all users
         url_users = [f"{BASE_URL}api/v1/users/{row['id']}/solves" for i,row in users.iterrows()]
         results_user_dict = {}
@@ -73,6 +82,10 @@ def get_user_team_stats(users:pd.DataFrame):
                 count+=1
 
         #setup asynchronous request pool that gets all team scores
+        spinner_user.stop()
+
+        spinner_teams =Halo(text='Fetching team solves', spinner='dots')
+        spinner_teams.start()
         url_teams = [f"{BASE_URL}api/v1/teams/{int(team_id)}" for team_id in teams]
         
         async with aiohttp.ClientSession() as session:
@@ -84,6 +97,7 @@ def get_user_team_stats(users:pd.DataFrame):
                     continue
 
                 results_team_dict[int(team)]={'score':results_teams[count]['data']['score'],'no_teammates':len(results_teams[count]['data']['members'])}
+        spinner_teams.stop()
 
         return results_user_dict, results_team_dict
 
@@ -91,6 +105,8 @@ def get_user_team_stats(users:pd.DataFrame):
 
 def get_data_from_google_form():
     # Convert Google form with columns Full Name, UniKey, Student Number and Email to pandas dataframe
+    spinner_forms =Halo(text='Reading in google form', spinner='dots')
+    spinner_forms.start()
     df = pd.read_csv(GOOGLE_FORM_PATH)
 
     unikey_email_re=r"^((?:[A-Za-z]{4}[0-9]{4})(?:@uni\.sydney\.edu\.au)?)$" 
@@ -103,12 +119,17 @@ def get_data_from_google_form():
     unikey_re = r"([a-zA-Z]{4}[0-9]{4})"
     for i,m in matches.iterrows():
         matches.loc[i,'UniKey']=re.search(unikey_re,matches.loc[i,'UniKey']).group(0)
-
+    spinner_forms.stop()
     change_all_entr_col_df_lowercase(matches,'Email')
+    change_all_entr_col_df_lowercase(matches,'UniKey')
 
+    spinner_forms =Halo(text='Cleaning results', spinner='dots')
+    spinner_forms.start()
     # Keeps the latest entry based on a user's unikey and deletes any entry with a duplicate email
     keep_latest_unikey= matches.drop_duplicates(subset=['UniKey'],keep='last')
-    return keep_latest_unikey.drop_duplicates(subset=['Email'],keep=False)
+    emails = keep_latest_unikey.drop_duplicates(subset=['Email'],keep=False)
+    spinner.stop()
+    return emails
 
 
 def main(): 
@@ -122,6 +143,8 @@ def main():
     """
     new_df = pd.DataFrame(columns=["Name","UniKey","Student Number"])
     count =0
+    spinner_filter = Halo(text='Filtering users', spinner='dots')
+    spinner_filter.start()
     for index, row in pep_form.iterrows():
         user:pd.DataFrame = ctfd_users[ctfd_users["email"] == row["Email"]]
         if len(user) ==1:
@@ -149,13 +172,17 @@ def main():
 
             new_df.loc[count] = [row['Full Name'],row["UniKey"],row['Student Number']]
             count+=1
-    
-    
+    spinner_filter.stop()
+    spinner = Halo(text='Saving files..', spinner='dots')
+    spinner.start()
     new_df.to_csv('PEP.csv',index=False)
     new_df.to_excel('PEP.xlsx',index=False)
+    spinner.stop()
     print("Done! Saved as PEP.csv and PEP.xlsx")
 
 if __name__ =="__main__":
+    spinner = Halo(text='Setting up environment Variables', spinner='dots')
+    spinner.start()
     # Setup environment
 
     if len(sys.argv) !=7:
@@ -185,5 +212,6 @@ if __name__ =="__main__":
     if not sys.argv[6].isdigit():
         raise ValueError("<NO_INDIVIDUAL_SOLVES> needs to be an integer")
     INDIVIDUAL_REQ_SOLVES=int(sys.argv[6])
+    spinner.stop()
 
     main()
